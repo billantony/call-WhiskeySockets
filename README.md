@@ -22,7 +22,7 @@ Compatible con Baileys
 ## 🚀 Instalación
 
 ```bash
-npm install https://github.com/tu-usuario/whatsapp-calls-package.git
+npm install https://github.com/billantony/call-WhiskeySockets.git
 ```
 
 ### Requisitos
