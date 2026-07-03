@@ -1,0 +1,47 @@
+{
+  "name": "whatsapp-calls-module",
+  "version": "1.0.0",
+  "description": "Módulo para llamadas de WhatsApp con micrófono en tiempo real para Baileys",
+  "main": "index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "calls",
+    "voip",
+    "audio",
+    "microphone",
+    "real-time"
+  ],
+  "author": "bgrandez",
+  "license": "MIT",
+  "dependencies": {
+    "caller": "file:./caller",
+    "ws": "^8.0.0",
+    "ffmpeg-static": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@whiskeysockets/baileys": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE",
+    "USERS_GUIDE.md",
+    "INSTALL.md",
+    "PUBLISH.md",
+    "example.js",
+    "caller/**"
+  ]
+}
