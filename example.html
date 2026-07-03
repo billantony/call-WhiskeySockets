@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Calls Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .button-start {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .button-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .button-end {
+            background: #ff4757;
+            color: white;
+        }
+
+        .button-end:hover {
+            background: #ff3838;
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .status-idle {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .status-calling {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .call-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .call-info.active {
+            display: block;
+        }
+
+        .call-info p {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        .call-info strong {
+            color: #333;
+        }
+
+        .audio-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .audio-indicator-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .audio-indicator-dot.active {
+            background: #4CAF50;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📞 WhatsApp Calls Demo</h1>
+        
+        <div id="status" class="status status-idle">
+            Ready to make a call
+        </div>
+
+        <div class="form-group">
+            <label for="phoneNumber">Phone Number</label>
+            <input 
+                type="text" 
+                id="phoneNumber" 
+                placeholder="+1234567890"
+                value="+1234567890"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="duration">Duration (seconds)</label>
+            <input 
+                type="number" 
+                id="duration" 
+                placeholder="60"
+                value="60"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="token">Auth Token (if required)</label>
+            <input 
+                type="text" 
+                id="token" 
+                placeholder="your-token-here"
+            >
+        </div>
+
+        <button id="startCall" class="button button-start">
+            🎤 Start Call
+        </button>
+
+        <button id="endCall" class="button button-end" disabled>
+            📞 End Call
+        </button>
+
+        <div id="callInfo" class="call-info">
+            <p><strong>Call ID:</strong> <span id="callId">-</span></p>
+            <p><strong>Status:</strong> <span id="callStatus">-</span></p>
+            <div class="audio-indicator">
+                <div id="audioIndicator" class="audio-indicator-dot"></div>
+                <span id="audioStatus">Microphone inactive</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8080';
+        let currentCallId = null;
+        let mediaRecorder = null;
+        let audioContext = null;
+        let ws = null;
+        let isRecording = false;
+
+        const statusEl = document.getElementById('status');
+        const startCallBtn = document.getElementById('startCall');
+        const endCallBtn = document.getElementById('endCall');
+        const callInfoEl = document.getElementById('callInfo');
+        const callIdEl = document.getElementById('callId');
+        const callStatusEl = document.getElementById('callStatus');
+        const audioIndicator = document.getElementById('audioIndicator');
+        const audioStatus = document.getElementById('audioStatus');
+
+        function updateStatus(type, message) {
+            statusEl.className = `status status-${type}`;
+            statusEl.textContent = message;
+        }
+
+        async function startCall() {
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            const duration = document.getElementById('duration').value * 1000;
+            const token = document.getElementById('token').value;
+
+            if (!phoneNumber) {
+                alert('Please enter a phone number');
+                return;
+            }
+
+            try {
+                updateStatus('calling', 'Starting call...');
+                startCallBtn.disabled = true;
+
+                const response = await fetch(`${API_URL}/call/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({
+                        phoneNumber,
+                        audioSource: 'stream',
+                        durationMs: duration
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.message);
+                }
+
+                currentCallId = data.callId;
+                callIdEl.textContent = currentCallId;
+                callStatusEl.textContent = 'Calling...';
+                callInfoEl.classList.add('active');
+                endCallBtn.disabled = false;
+
+                updateStatus('calling', 'Call started. Please wait for connection...');
+
+                // Start microphone
+                await startMicrophone();
+
+                // Connect WebSocket for incoming audio
+                connectWebSocket();
+
+            } catch (error) {
+                console.error('Error starting call:', error);
+                updateStatus('idle', 'Error: ' + error.message);
+                startCallBtn.disabled = false;
+            }
+        }
+
+        async function endCall() {
+            if (!currentCallId) return;
+
+            try {
+                const token = document.getElementById('token').value;
+
+                await fetch(`${API_URL}/call/end`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ callId: currentCallId })
+                });
+
+                stopMicrophone();
+                if (ws) ws.close();
+
+                currentCallId = null;
+                callInfoEl.classList.remove('active');
+                endCallBtn.disabled = true;
+                startCallBtn.disabled = false;
+
+                updateStatus('idle', 'Call ended');
+
+            } catch (error) {
+                console.error('Error ending call:', error);
+                updateStatus('idle', 'Error ending call: ' + error.message);
+            }
+        }
+
+        async function startMicrophone() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(stream);
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+                processor.onaudioprocess = async (e) => {
+                    if (!currentCallId || !isRecording) return;
+
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    // Convert to 16kHz mono Float32
+                    const audioData = new Float32Array(320); // 20ms at 16kHz
+                    const step = e.inputBuffer.sampleRate / 16000;
+                    
+                    for (let i = 0; i < 320; i++) {
+                        const srcIndex = Math.floor(i * step);
+                        audioData[i] = inputData[srcIndex] || 0;
+                    }
+
+                    // Send to server
+                    try {
+                        const token = document.getElementById('token').value;
+                        await fetch(`${API_URL}/call/audio/${currentCallId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/octet-stream',
+                                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                            },
+                            body: audioData.buffer
+                        });
+                    } catch (error) {
+                        console.error('Error sending audio:', error);
+                    }
+                };
+
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                isRecording = true;
+                audioIndicator.classList.add('active');
+                audioStatus.textContent = 'Microphone active';
+
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                alert('Could not access microphone. Please allow microphone access.');
+            }
+        }
+
+        function stopMicrophone() {
+            isRecording = false;
+            audioIndicator.classList.remove('active');
+            audioStatus.textContent = 'Microphone inactive';
+
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+        }
+
+        function connectWebSocket() {
+            ws = new WebSocket(`ws://localhost:8080/ws/audio?callId=${currentCallId}`);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+            };
+
+            ws.onmessage = async (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.callId === currentCallId && data.audio) {
+                        // Play incoming audio
+                        playIncomingAudio(data.audio);
+                    }
+                } catch (error) {
+                    console.error('Error processing WebSocket message:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket closed');
+            };
+        }
+
+        async function playIncomingAudio(audioArray) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            }
+
+            const audioBuffer = audioContext.createBuffer(1, audioArray.length, 16000);
+            audioBuffer.getChannelData(0).set(audioArray);
+
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            source.start();
+        }
+
+        startCallBtn.addEventListener('click', startCall);
+        endCallBtn.addEventListener('click', endCall);
+    </script>
+</body>
+</html>
